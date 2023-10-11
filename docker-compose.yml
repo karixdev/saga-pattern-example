@@ -1,0 +1,95 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-server:7.4.1
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  akhq:
+    image: tchiotludo/akhq:0.24.0
+    container_name: my-akhq
+    depends_on:
+      - broker
+    ports:
+      - "8086:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          server:
+            access-log: # Access log configuration (optional)
+              enabled: true # true by default
+              name: org.akhq.log.access # Logger name
+              format: "[Date: {}] [Duration: {} ms] [Url: {} {}] [Status: {}] [Ip: {}] [User: {}]" # Logger format
+          clients-defaults:
+            consumer:
+              properties:
+                isolation.level: read_committed
+          security:
+            default-group: admin
+          connections:
+            local:
+              properties:
+                bootstrap.servers: "broker:29092"
+          pagination:
+            page-size: 25 # number of elements per page (default : 25)
+            threads: 8 # Number of parallel threads to resolve page
+
+  order-service-db:
+    container_name: order-service-db
+    image: postgres:15.1-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: order-service
+    ports:
+      - '5432:5432'
+
+  warehouse-service-db:
+    container_name: warehouse-service-db
+    image: postgres:15.1-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: warehouse-service
+    ports:
+      - '5433:5432'
+
+  payment-service-db:
+    container_name: payment-service-db
+    image: postgres:15.1-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: payment-service
+    ports:
+      - '5434:5432'
