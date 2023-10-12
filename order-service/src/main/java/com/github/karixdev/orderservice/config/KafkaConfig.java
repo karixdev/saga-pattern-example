@@ -12,12 +12,12 @@ import org.springframework.kafka.core.ProducerFactory;
 public class KafkaConfig {
 
     @Bean
-    ProducerFactory<String, WarehouseEvent> orderDTOProducerFactory(KafkaProperties properties) {
+    ProducerFactory<String, WarehouseEvent> warehouseEventProducerFactory(KafkaProperties properties) {
         return new DefaultKafkaProducerFactory<>(properties.buildProducerProperties());
     }
 
     @Bean
-    KafkaTemplate<String, WarehouseEvent> orderDTOKafkaTemplate(ProducerFactory<String, WarehouseEvent> producerFactory) {
+    KafkaTemplate<String, WarehouseEvent> warehouseEventKafkaTemplate(ProducerFactory<String, WarehouseEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
