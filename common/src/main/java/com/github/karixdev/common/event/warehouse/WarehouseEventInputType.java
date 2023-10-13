@@ -1,5 +1,5 @@
 package com.github.karixdev.common.event.warehouse;
 
-public enum WarehouseEventType {
+public enum WarehouseEventInputType {
     LOCK_ITEM
 }

@@ -44,6 +44,12 @@ public class Order {
     )
     private UUID itemId;
 
+    @Column(
+            name = "user_id",
+            nullable = false
+    )
+    private UUID userId;
+
     @Enumerated(EnumType.STRING)
     @Column(
             name = "status",

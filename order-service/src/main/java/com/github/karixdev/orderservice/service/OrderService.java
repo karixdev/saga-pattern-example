@@ -1,7 +1,7 @@
 package com.github.karixdev.orderservice.service;
 
-import com.github.karixdev.common.event.warehouse.WarehouseEvent;
-import com.github.karixdev.common.event.warehouse.WarehouseEventType;
+import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
+import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
 import com.github.karixdev.common.dto.order.OrderDTO;
 import com.github.karixdev.orderservice.entity.Order;
 import com.github.karixdev.common.dto.order.OrderStatus;
@@ -15,12 +15,12 @@ import org.springframework.stereotype.Service;
 public class OrderService {
 
     private final OrderRepository repository;
-    private final KafkaTemplate<String, WarehouseEvent> kafkaTemplate;
+    private final KafkaTemplate<String, WarehouseInputEvent> kafkaTemplate;
     private final String warehouseInputTopic;
 
     public OrderService(
             OrderRepository repository,
-            KafkaTemplate<String, WarehouseEvent> kafkaTemplate,
+            KafkaTemplate<String, WarehouseInputEvent> kafkaTemplate,
             @Value("${topics.warehouse.input}") String warehouseInputTopic
     ) {
         this.repository = repository;
@@ -32,23 +32,28 @@ public class OrderService {
     public OrderDTO create(OrderDTO orderDTO) {
         Order order = Order.builder()
                 .itemId(orderDTO.itemId())
+                .userId(orderDTO.userId())
                 .status(OrderStatus.AWAITING_VERIFICATION)
                 .build();
 
         repository.save(order);
 
-        OrderDTO createdOrderDTO = new OrderDTO(order.getId(), order.getItemId(), order.getStatus());
+        OrderDTO createdOrderDTO = mapToDTO(order);
 
         kafkaTemplate.send(
                 warehouseInputTopic,
                 order.getItemId().toString(),
-                new WarehouseEvent(
-                        WarehouseEventType.LOCK_ITEM,
+                new WarehouseInputEvent(
+                        WarehouseEventInputType.LOCK_ITEM,
                         createdOrderDTO
                 )
         );
 
         return createdOrderDTO;
+    }
+
+    private OrderDTO mapToDTO(Order order) {
+        return new OrderDTO(order.getId(), order.getItemId(), order.getUserId(), order.getStatus());
     }
 
 }
