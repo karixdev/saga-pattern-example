@@ -3,14 +3,21 @@ package com.github.karixdev.orderservice.service;
 import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
 import com.github.karixdev.common.dto.order.OrderDTO;
+import com.github.karixdev.common.event.warehouse.WarehouseOutputEvent;
+import com.github.karixdev.common.exception.ResourceNotFoundException;
 import com.github.karixdev.orderservice.entity.Order;
 import com.github.karixdev.common.dto.order.OrderStatus;
 import com.github.karixdev.orderservice.repository.OrderRepository;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
+@Slf4j
 @Service
 public class OrderService {
 
@@ -56,4 +63,25 @@ public class OrderService {
         return new OrderDTO(order.getId(), order.getItemId(), order.getUserId(), order.getStatus());
     }
 
+    private Order findByIdOrElseThrow(UUID orderId) {
+        return repository.findById(orderId).orElseThrow(() -> {
+            log.error("Could not find order with id: {}", orderId);
+            return new ResourceNotFoundException("Could not find order with id: %s".formatted(orderId));
+        });
+    }
+
+    private void cancelOrder(UUID orderId) {
+        Order order = findByIdOrElseThrow(orderId);
+        order.setStatus(OrderStatus.CANCELED);
+    }
+
+    @Transactional
+    public void handleWarehouseOutputEvent(ConsumerRecord<String, WarehouseOutputEvent> event) {
+        WarehouseOutputEvent value = event.value();
+
+        switch (value.type()) {
+            case ITEM_UNAVAILABLE -> cancelOrder(value.orderId());
+            default -> log.error("Could not handle: {}", event);
+        }
+    }
 }
