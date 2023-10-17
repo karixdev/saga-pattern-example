@@ -1,21 +1,21 @@
 package com.github.karixdev.orderservice.service;
 
+import com.github.karixdev.common.dto.order.OrderDTO;
+import com.github.karixdev.common.dto.order.OrderStatus;
 import com.github.karixdev.common.event.payment.PaymentInputEvent;
 import com.github.karixdev.common.event.payment.PaymentInputEventType;
 import com.github.karixdev.common.event.payment.PaymentOutputEvent;
-import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
-import com.github.karixdev.common.dto.order.OrderDTO;
+import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseOutputEvent;
 import com.github.karixdev.common.exception.ResourceNotFoundException;
 import com.github.karixdev.orderservice.entity.Order;
-import com.github.karixdev.common.dto.order.OrderStatus;
+import com.github.karixdev.orderservice.producer.PaymentInputEventProducer;
+import com.github.karixdev.orderservice.producer.WarehouseInputEventProducer;
 import com.github.karixdev.orderservice.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -25,23 +25,17 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository repository;
-    private final KafkaTemplate<String, WarehouseInputEvent> warehouseInputEventKafkaTemplate;
-    private final String warehouseInputTopic;
-    private final KafkaTemplate<String, PaymentInputEvent> paymentInputEventKafkaTemplate;
-    private final String paymentInputTopic;
+    private final WarehouseInputEventProducer warehouseInputEventProducer;
+    private final PaymentInputEventProducer paymentInputEventProducer;
 
     public OrderService(
             OrderRepository repository,
-            KafkaTemplate<String, WarehouseInputEvent> warehouseInputEventKafkaTemplate,
-            @Value("${topics.warehouse.input}") String warehouseInputTopic,
-            KafkaTemplate<String, PaymentInputEvent> paymentInputEventKafkaTemplate,
-            @Value("${topics.payment.input}") String paymentInputTopic
+            WarehouseInputEventProducer warehouseInputEventProducer,
+            PaymentInputEventProducer paymentInputEventProducer
     ) {
         this.repository = repository;
-        this.warehouseInputEventKafkaTemplate = warehouseInputEventKafkaTemplate;
-        this.warehouseInputTopic = warehouseInputTopic;
-        this.paymentInputEventKafkaTemplate = paymentInputEventKafkaTemplate;
-        this.paymentInputTopic = paymentInputTopic;
+        this.warehouseInputEventProducer = warehouseInputEventProducer;
+        this.paymentInputEventProducer = paymentInputEventProducer;
     }
 
     @Transactional
@@ -56,9 +50,8 @@ public class OrderService {
 
         OrderDTO createdOrderDTO = mapToDTO(order);
 
-        warehouseInputEventKafkaTemplate.send(
-                warehouseInputTopic,
-                order.getItemId().toString(),
+        warehouseInputEventProducer.send(
+                order.getId().toString(),
                 new WarehouseInputEvent(
                         WarehouseEventInputType.LOCK_ITEM,
                         order.getId(),
@@ -89,8 +82,7 @@ public class OrderService {
         Order order = findByIdOrElseThrow(event.orderId());
         order.setStatus(OrderStatus.AWAITING_PAYMENT);
 
-        paymentInputEventKafkaTemplate.send(
-                paymentInputTopic,
+        paymentInputEventProducer.send(
                 order.getId().toString(),
                 new PaymentInputEvent(
                         PaymentInputEventType.PAYMENT_REQUEST,
@@ -116,9 +108,8 @@ public class OrderService {
         Order order = findByIdOrElseThrow(id);
         order.setStatus(OrderStatus.CANCELED);
 
-        warehouseInputEventKafkaTemplate.send(
-                warehouseInputTopic,
-                order.getItemId().toString(),
+        warehouseInputEventProducer.send(
+                order.getId().toString(),
                 new WarehouseInputEvent(
                         WarehouseEventInputType.UNLOCK_ITEM,
                         order.getId(),
