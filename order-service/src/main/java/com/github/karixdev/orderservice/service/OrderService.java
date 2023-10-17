@@ -2,6 +2,7 @@ package com.github.karixdev.orderservice.service;
 
 import com.github.karixdev.common.event.payment.PaymentInputEvent;
 import com.github.karixdev.common.event.payment.PaymentInputEventType;
+import com.github.karixdev.common.event.payment.PaymentOutputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
 import com.github.karixdev.common.dto.order.OrderDTO;
@@ -60,7 +61,8 @@ public class OrderService {
                 order.getItemId().toString(),
                 new WarehouseInputEvent(
                         WarehouseEventInputType.LOCK_ITEM,
-                        createdOrderDTO
+                        order.getId(),
+                        order.getItemId()
                 )
         );
 
@@ -109,4 +111,30 @@ public class OrderService {
             default -> log.error("Could not handle: {}", record);
         }
     }
+
+    private void cancelOrderAfterPaymentFailed(UUID id) {
+        Order order = findByIdOrElseThrow(id);
+        order.setStatus(OrderStatus.CANCELED);
+
+        warehouseInputEventKafkaTemplate.send(
+                warehouseInputTopic,
+                order.getItemId().toString(),
+                new WarehouseInputEvent(
+                        WarehouseEventInputType.UNLOCK_ITEM,
+                        order.getId(),
+                        order.getItemId()
+                )
+        );
+    }
+
+    @Transactional
+    public void handlePaymentOutputEvent(ConsumerRecord<String, PaymentOutputEvent> event) {
+        PaymentOutputEvent value = event.value();
+
+        switch (value.type()) {
+            case PAYMENT_FAILED -> cancelOrderAfterPaymentFailed(value.orderId());
+            default -> log.error("Could not handle: {}", event);
+        }
+    }
+
 }

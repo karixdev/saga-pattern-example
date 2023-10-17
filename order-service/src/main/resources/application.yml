@@ -28,3 +28,4 @@ topics:
     output: warehouse-output
   payment:
     input: payment-input
+    output: payment-output

@@ -2,6 +2,7 @@ package com.github.karixdev.orderservice.config;
 
 import com.github.karixdev.common.event.payment.PaymentInputEvent;
 import com.github.karixdev.common.event.payment.PaymentInputEventType;
+import com.github.karixdev.common.event.payment.PaymentOutputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseOutputEvent;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -50,6 +51,21 @@ public class KafkaConfig {
     @Bean
     KafkaTemplate<String, PaymentInputEvent> paymentInputEventKafkaTemplate(ProducerFactory<String, PaymentInputEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    ConsumerFactory<String, PaymentOutputEvent> paymentOutputEventConsumerFactory(KafkaProperties properties) {
+        return new DefaultKafkaConsumerFactory<>(properties.buildConsumerProperties());
+    }
+
+    @Bean
+    ConcurrentKafkaListenerContainerFactory<String, PaymentOutputEvent> paymentOutputEventConcurrentKafkaListenerContainerFactory(
+            ConsumerFactory<String, PaymentOutputEvent> consumerFactory
+    ) {
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, PaymentOutputEvent>();
+        factory.setConsumerFactory(consumerFactory);
+
+        return factory;
     }
 
 }
