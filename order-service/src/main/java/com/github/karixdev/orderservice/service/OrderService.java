@@ -113,7 +113,21 @@ public class OrderService {
                 new WarehouseInputEvent(
                         WarehouseEventInputType.UNLOCK_ITEM,
                         order.getId(),
-                        order.getItemId()
+                        null
+                )
+        );
+    }
+
+    private void processPaymentSuccess(UUID id) {
+        Order order = findByIdOrElseThrow(id);
+        order.setStatus(OrderStatus.COMPLETED);
+
+        warehouseInputEventProducer.send(
+                order.getId().toString(),
+                new WarehouseInputEvent(
+                        WarehouseEventInputType.DELETE_LOCK_AND_DECREMENT_COUNT,
+                        order.getId(),
+                        null
                 )
         );
     }
@@ -124,6 +138,7 @@ public class OrderService {
 
         switch (value.type()) {
             case PAYMENT_FAILED -> cancelOrderAfterPaymentFailed(value.orderId());
+            case PAYMENT_SUCCESS -> processPaymentSuccess(value.orderId());
             default -> log.error("Could not handle: {}", event);
         }
     }
