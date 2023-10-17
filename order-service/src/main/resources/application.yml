@@ -26,3 +26,5 @@ topics:
   warehouse:
     input: warehouse-input
     output: warehouse-output
+  payment:
+    input: payment-input

@@ -1,5 +1,7 @@
 package com.github.karixdev.orderservice.service;
 
+import com.github.karixdev.common.event.payment.PaymentInputEvent;
+import com.github.karixdev.common.event.payment.PaymentInputEventType;
 import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
 import com.github.karixdev.common.dto.order.OrderDTO;
@@ -22,17 +24,23 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository repository;
-    private final KafkaTemplate<String, WarehouseInputEvent> kafkaTemplate;
+    private final KafkaTemplate<String, WarehouseInputEvent> warehouseInputEventKafkaTemplate;
     private final String warehouseInputTopic;
+    private final KafkaTemplate<String, PaymentInputEvent> paymentInputEventKafkaTemplate;
+    private final String paymentInputTopic;
 
     public OrderService(
             OrderRepository repository,
-            KafkaTemplate<String, WarehouseInputEvent> kafkaTemplate,
-            @Value("${topics.warehouse.input}") String warehouseInputTopic
+            KafkaTemplate<String, WarehouseInputEvent> warehouseInputEventKafkaTemplate,
+            @Value("${topics.warehouse.input}") String warehouseInputTopic,
+            KafkaTemplate<String, PaymentInputEvent> paymentInputEventKafkaTemplate,
+            @Value("${topics.payment.input}") String paymentInputTopic
     ) {
         this.repository = repository;
-        this.kafkaTemplate = kafkaTemplate;
+        this.warehouseInputEventKafkaTemplate = warehouseInputEventKafkaTemplate;
         this.warehouseInputTopic = warehouseInputTopic;
+        this.paymentInputEventKafkaTemplate = paymentInputEventKafkaTemplate;
+        this.paymentInputTopic = paymentInputTopic;
     }
 
     @Transactional
@@ -47,7 +55,7 @@ public class OrderService {
 
         OrderDTO createdOrderDTO = mapToDTO(order);
 
-        kafkaTemplate.send(
+        warehouseInputEventKafkaTemplate.send(
                 warehouseInputTopic,
                 order.getItemId().toString(),
                 new WarehouseInputEvent(
@@ -75,13 +83,30 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELED);
     }
 
+    private void processItemLocked(WarehouseOutputEvent event) {
+        Order order = findByIdOrElseThrow(event.orderId());
+        order.setStatus(OrderStatus.AWAITING_PAYMENT);
+
+        paymentInputEventKafkaTemplate.send(
+                paymentInputTopic,
+                order.getId().toString(),
+                new PaymentInputEvent(
+                        PaymentInputEventType.PAYMENT_REQUEST,
+                        order.getId(),
+                        order.getUserId(),
+                        event.itemDTO().price()
+                )
+        );
+    }
+
     @Transactional
-    public void handleWarehouseOutputEvent(ConsumerRecord<String, WarehouseOutputEvent> event) {
-        WarehouseOutputEvent value = event.value();
+    public void handleWarehouseOutputEvent(ConsumerRecord<String, WarehouseOutputEvent> record) {
+        WarehouseOutputEvent value = record.value();
 
         switch (value.type()) {
             case ITEM_UNAVAILABLE -> cancelOrder(value.orderId());
-            default -> log.error("Could not handle: {}", event);
+            case ITEM_LOCKED -> processItemLocked(value);
+            default -> log.error("Could not handle: {}", record);
         }
     }
 }
