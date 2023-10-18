@@ -79,18 +79,30 @@ public class OrderService {
     }
 
     private void processItemLocked(WarehouseOutputEvent event) {
-        Order order = findByIdOrElseThrow(event.orderId());
-        order.setStatus(OrderStatus.AWAITING_PAYMENT);
+        try {
+            Order order = findByIdOrElseThrow(event.orderId());
+            order.setStatus(OrderStatus.AWAITING_PAYMENT);
 
-        paymentInputEventProducer.send(
-                order.getId().toString(),
-                new PaymentInputEvent(
-                        PaymentInputEventType.PAYMENT_REQUEST,
-                        order.getId(),
-                        order.getUserId(),
-                        event.itemDTO().price()
-                )
-        );
+            paymentInputEventProducer.send(
+                    order.getId().toString(),
+                    new PaymentInputEvent(
+                            PaymentInputEventType.PAYMENT_REQUEST,
+                            order.getId(),
+                            order.getUserId(),
+                            event.itemDTO().price()
+                    )
+            );
+        } catch (ResourceNotFoundException ex) {
+            log.error("Could not find order, item UNLOCK_ITEM is being sent");
+            warehouseInputEventProducer.send(
+                    event.orderId().toString(),
+                    new WarehouseInputEvent(
+                            WarehouseEventInputType.UNLOCK_ITEM,
+                            event.orderId(),
+                            null
+                    )
+            );
+        }
     }
 
     @Transactional
@@ -119,17 +131,29 @@ public class OrderService {
     }
 
     private void processPaymentSuccess(UUID id) {
-        Order order = findByIdOrElseThrow(id);
-        order.setStatus(OrderStatus.COMPLETED);
+        try {
+            Order order = findByIdOrElseThrow(id);
+            order.setStatus(OrderStatus.COMPLETED);
 
-        warehouseInputEventProducer.send(
-                order.getId().toString(),
-                new WarehouseInputEvent(
-                        WarehouseEventInputType.DELETE_LOCK_AND_DECREMENT_COUNT,
-                        order.getId(),
-                        null
-                )
-        );
+            warehouseInputEventProducer.send(
+                    order.getId().toString(),
+                    new WarehouseInputEvent(
+                            WarehouseEventInputType.DELETE_LOCK_AND_DECREMENT_COUNT,
+                            order.getId(),
+                            null
+                    )
+            );
+        } catch (ResourceNotFoundException ex) {
+            paymentInputEventProducer.send(
+                    id.toString(),
+                    new PaymentInputEvent(
+                            PaymentInputEventType.PAYMENT_REVOKE,
+                            id,
+                            null,
+                            null
+                    )
+            );
+        }
     }
 
     @Transactional
