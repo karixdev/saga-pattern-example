@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -24,4 +25,11 @@ public interface ItemLockRepository extends JpaRepository<ItemLock, UUID> {
             WHERE item.orderId = :id
             """)
     void deleteByOrderId(UUID id);
+
+    @Query("""
+            SELECT itemLock
+            FROM ItemLock itemLock
+            WHERE itemLock.orderId = :orderId
+            """)
+    Optional<ItemLock> findByOrderId(UUID orderId);
 }
