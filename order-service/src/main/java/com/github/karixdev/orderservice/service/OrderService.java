@@ -16,13 +16,14 @@ import com.github.karixdev.orderservice.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
 @Slf4j
 @Service
-public class OrderService {
+public class OrderService implements DisposableBean {
 
     private final OrderRepository repository;
     private final WarehouseInputEventProducer warehouseInputEventProducer;
@@ -50,6 +51,8 @@ public class OrderService {
 
         OrderDTO createdOrderDTO = mapToDTO(order);
 
+        log.info("Created order {}. Sending LOCK_ITEM event", order.getId());
+
         warehouseInputEventProducer.send(
                 order.getId().toString(),
                 new WarehouseInputEvent(
@@ -74,14 +77,22 @@ public class OrderService {
     }
 
     private void cancelOrder(UUID orderId) {
-        Order order = findByIdOrElseThrow(orderId);
-        order.setStatus(OrderStatus.CANCELED);
+        try {
+            Order order = findByIdOrElseThrow(orderId);
+            order.setStatus(OrderStatus.CANCELED);
+
+            log.info("Item from order {} is unavailable. Order is being canceled", orderId);
+        } catch (ResourceNotFoundException ex) {
+            log.error("Order {} cannot be canceled after item unavailable because it does not exist", orderId);
+        }
     }
 
     private void processItemLocked(WarehouseOutputEvent event) {
         try {
             Order order = findByIdOrElseThrow(event.orderId());
             order.setStatus(OrderStatus.AWAITING_PAYMENT);
+
+            log.info("Item from order {} locked. Sending PAYMENT_REQUEST event", event.orderId());
 
             paymentInputEventProducer.send(
                     order.getId().toString(),
@@ -117,17 +128,23 @@ public class OrderService {
     }
 
     private void cancelOrderAfterPaymentFailed(UUID id) {
-        Order order = findByIdOrElseThrow(id);
-        order.setStatus(OrderStatus.CANCELED);
+        try {
+            Order order = findByIdOrElseThrow(id);
+            order.setStatus(OrderStatus.CANCELED);
 
-        warehouseInputEventProducer.send(
-                order.getId().toString(),
-                new WarehouseInputEvent(
-                        WarehouseEventInputType.UNLOCK_ITEM,
-                        order.getId(),
-                        null
-                )
-        );
+            log.info("Payment for order {} failed. Canceling order and sending UNLOCK_ITEM event", id);
+
+            warehouseInputEventProducer.send(
+                    order.getId().toString(),
+                    new WarehouseInputEvent(
+                            WarehouseEventInputType.UNLOCK_ITEM,
+                            order.getId(),
+                            null
+                    )
+            );
+        } catch (ResourceNotFoundException ex) {
+            log.error("Order {} cannot be canceled after payment failure because it does not exist", id);
+        }
     }
 
     private void processPaymentSuccess(UUID id) {
@@ -135,6 +152,7 @@ public class OrderService {
             Order order = findByIdOrElseThrow(id);
             order.setStatus(OrderStatus.COMPLETED);
 
+            log.info("Payment success for order {}. Sending DELETE_LOCK_AND_DECREMENT_COUNT event", id);
             warehouseInputEventProducer.send(
                     order.getId().toString(),
                     new WarehouseInputEvent(
@@ -144,6 +162,7 @@ public class OrderService {
                     )
             );
         } catch (ResourceNotFoundException ex) {
+            log.error("Could not find order, item PAYMENT_REVOKE is being sent");
             paymentInputEventProducer.send(
                     id.toString(),
                     new PaymentInputEvent(
@@ -167,4 +186,8 @@ public class OrderService {
         }
     }
 
+    @Override
+    public void destroy() throws Exception {
+
+    }
 }
