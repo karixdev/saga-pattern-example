@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -46,6 +47,12 @@ public class Item {
             nullable = false
     )
     private String name;
+
+    @Column(
+            name = "price",
+            nullable = false
+    )
+    private BigDecimal price;
 
     @Column(
             name = "quantity",
