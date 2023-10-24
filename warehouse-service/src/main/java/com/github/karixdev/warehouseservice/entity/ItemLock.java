@@ -45,10 +45,7 @@ public class ItemLock {
     @JoinColumn(
             name = "item_id",
             nullable = false,
-            referencedColumnName = "id",
-            foreignKey = @ForeignKey(
-                    foreignKeyDefinition = "item_id_fk"
-            )
+            referencedColumnName = "id"
     )
     private Item item;
 
