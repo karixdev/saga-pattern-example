@@ -48,7 +48,10 @@ public class ItemService {
                 return;
             }
 
-            ItemLock itemLock = ItemLock.builder().item(item).build();
+            ItemLock itemLock = ItemLock.builder()
+                    .item(item)
+                    .orderId(event.orderId())
+                    .build();
             itemLockRepository.save(itemLock);
 
             warehouseOutputEventProducer.produceItemLockedEvent(
@@ -62,12 +65,17 @@ public class ItemService {
         }
     }
 
+    private void unlockItem(WarehouseInputEvent event) {
+        itemLockRepository.deleteByOrderId(event.orderId());
+    }
+
     @Transactional
     public void handleWarehouseInputEvent(ConsumerRecord<String, WarehouseInputEvent> record) {
         WarehouseInputEvent event = record.value();
 
         switch (event.type()) {
             case LOCK_ITEM -> lockItem(event);
+            case UNLOCK_ITEM -> unlockItem(event);
             default -> log.error("Could not handle: {}", record);
         }
     }

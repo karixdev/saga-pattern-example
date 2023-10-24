@@ -49,4 +49,10 @@ public class ItemLock {
     )
     private Item item;
 
+    @Column(
+            name = "orderId",
+            nullable = false
+    )
+    private UUID orderId;
+
 }
