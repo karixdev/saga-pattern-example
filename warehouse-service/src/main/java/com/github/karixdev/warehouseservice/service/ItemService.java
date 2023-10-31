@@ -52,6 +52,7 @@ public class ItemService {
             int countOfAvailable = item.getQuantity() - itemLocksCount;
 
             if (countOfAvailable <= 0) {
+                log.warn("Item {} is out of stock. Item UNAVAILABLE event is being sent.", event.itemId());
                 warehouseOutputEventProducer.produceItemUnavailableEvent(event.orderId().toString(), event.orderId());
                 return;
             }
@@ -68,21 +69,29 @@ public class ItemService {
                     mapToDTO(item)
             );
 
+            log.info("Item {} is locked. Item LOCKED event is being sent.", event.itemId());
+
         } catch (ResourceNotFoundException ex) {
+            log.error("Could not find item. Item UNAVAILABLE event is being sent.");
             warehouseOutputEventProducer.produceItemUnavailableEvent(event.orderId().toString(), event.orderId());
         }
     }
 
     private void unlockItem(WarehouseInputEvent event) {
         itemLockRepository.deleteByOrderId(event.orderId());
+        log.info("Removed lock from order {}", event.orderId());
     }
 
     private void deleteLockAndDecrementQuantity(WarehouseInputEvent event) {
-        ItemLock itemLock = findItemLockByOrderIdOrElseThrow(event.orderId());
-        Item item = itemLock.getItem();
+        try {
+            ItemLock itemLock = findItemLockByOrderIdOrElseThrow(event.orderId());
+            Item item = itemLock.getItem();
 
-        item.setQuantity(item.getQuantity() - 1);
-        itemLockRepository.delete(itemLock);
+            item.setQuantity(item.getQuantity() - 1);
+            itemLockRepository.delete(itemLock);
+        } catch (ResourceNotFoundException ex) {
+            log.error("Could not find item lock from order {}", event.orderId());
+        }
     }
 
     @Transactional
