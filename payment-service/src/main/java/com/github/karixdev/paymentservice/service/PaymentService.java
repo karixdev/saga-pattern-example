@@ -1,7 +1,6 @@
 package com.github.karixdev.paymentservice.service;
 
 import com.github.karixdev.common.event.payment.PaymentInputEvent;
-import com.github.karixdev.common.event.payment.PaymentOutputEvent;
 import com.github.karixdev.common.exception.ResourceNotFoundException;
 import com.github.karixdev.paymentservice.entity.BankAccount;
 import com.github.karixdev.paymentservice.entity.Payment;
@@ -34,6 +33,14 @@ public class PaymentService {
         });
     }
 
+    private Payment findPaymentByOrderId(UUID orderId) {
+        return paymentRepository.findByOrderId(orderId).orElseThrow(() -> {
+            String message = "Could not find payment with order id: %s".formatted(orderId);
+            log.error(message);
+            return new ResourceNotFoundException(message);
+        });
+    }
+
     private void handlePaymentRequest(PaymentInputEvent event) {
         try {
             BankAccount bankAccount = findBankAccountByUserId(event.userId());
@@ -49,6 +56,7 @@ public class PaymentService {
             Payment payment = Payment.builder()
                     .orderId(event.orderId())
                     .amount(event.amount())
+                    .bankAccount(bankAccount)
                     .build();
 
             paymentRepository.save(payment);
@@ -60,15 +68,26 @@ public class PaymentService {
         }
     }
 
+    private void handlePaymentRevoke(PaymentInputEvent event) {
+        try {
+            Payment payment = findPaymentByOrderId(event.orderId());
+            BankAccount bankAccount = payment.getBankAccount();
+
+            BigDecimal newBalance = bankAccount.getBalance().add(payment.getAmount());
+            bankAccount.setBalance(newBalance);
+
+        } catch (ResourceNotFoundException ex) {}
+    }
+
     @Transactional
     public void handlePaymentInputEvent(ConsumerRecord<String, PaymentInputEvent> record) {
         PaymentInputEvent event = record.value();
 
         switch (event.type()) {
             case PAYMENT_REQUEST -> handlePaymentRequest(event);
+            case PAYMENT_REVOKE -> handlePaymentRevoke(event);
             default -> log.error("Could not handle: {}", record);
         }
     }
-
 
 }
