@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.UUID;
 
 @Slf4j
@@ -105,4 +106,9 @@ public class ItemService {
             default -> log.error("Could not handle: {}", record);
         }
     }
+
+    public Collection<Item> findAll() {
+        return itemRepository.findAllWithLocks();
+    }
+
 }

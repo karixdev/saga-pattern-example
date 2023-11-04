@@ -1,5 +1,6 @@
 package com.github.karixdev.warehouseservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ForeignKey;
@@ -47,6 +48,7 @@ public class ItemLock {
             nullable = false,
             referencedColumnName = "id"
     )
+    @JsonIgnore
     private Item item;
 
     @Column(

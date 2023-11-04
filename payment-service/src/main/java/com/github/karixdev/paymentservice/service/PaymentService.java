@@ -14,6 +14,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.UUID;
 
 @Slf4j
@@ -96,4 +97,7 @@ public class PaymentService {
         }
     }
 
+    public Collection<BankAccount> findAllBankAccounts() {
+        return bankAccountRepository.findAllWithPayments();
+    }
 }

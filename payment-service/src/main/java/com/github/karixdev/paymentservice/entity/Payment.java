@@ -1,5 +1,6 @@
 package com.github.karixdev.paymentservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,6 +59,7 @@ public class Payment {
             name = "bank_account_id",
             nullable = false
     )
+    @JsonIgnore
     private BankAccount bankAccount;
 
 }

@@ -16,14 +16,14 @@ import com.github.karixdev.orderservice.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.UUID;
 
 @Slf4j
 @Service
-public class OrderService implements DisposableBean {
+public class OrderService {
 
     private final OrderRepository repository;
     private final WarehouseInputEventProducer warehouseInputEventProducer;
@@ -186,8 +186,7 @@ public class OrderService implements DisposableBean {
         }
     }
 
-    @Override
-    public void destroy() throws Exception {
-
+    public Collection<Order> findAll() {
+        return repository.findAll();
     }
 }
