@@ -1,9 +1,15 @@
 package com.github.karixdev.orderservice.producer;
 
+import com.github.karixdev.common.dto.warehouse.ItemDTO;
 import com.github.karixdev.common.event.payment.PaymentInputEvent;
+import com.github.karixdev.common.event.payment.PaymentInputEventType;
+import com.github.karixdev.orderservice.entity.Order;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.UUID;
 
 @Component
 public class PaymentInputEventProducer {
@@ -19,8 +25,24 @@ public class PaymentInputEventProducer {
         this.topic = topic;
     }
 
-    public void send(String key, PaymentInputEvent value) {
-        kafkaTemplate.send(topic, key, value);
+    public void sendPaymentRequestEvent(UUID orderId, UUID userId, BigDecimal amount) {
+        PaymentInputEvent event = PaymentInputEvent.builder()
+                .type(PaymentInputEventType.PAYMENT_REQUEST)
+                .orderId(orderId)
+                .userId(userId)
+                .amount(amount)
+                .build();
+
+        kafkaTemplate.send(topic, orderId.toString(), event);
+    }
+
+    public void sendPaymentRevokeEvent(UUID orderId) {
+        PaymentInputEvent event = PaymentInputEvent.builder()
+                .type(PaymentInputEventType.PAYMENT_REVOKE)
+                .orderId(orderId)
+                .build();
+
+        kafkaTemplate.send(topic, orderId.toString(), event);
     }
 
 }

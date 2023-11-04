@@ -41,24 +41,10 @@ public class OrderService {
 
         repository.save(order);
 
-        OrderDTO createdOrderDTO = mapToDTO(order);
-
         log.info("Created order {}. Sending LOCK_ITEM event", order.getId());
-
-        warehouseInputEventProducer.send(
-                order.getId().toString(),
-                new WarehouseInputEvent(
-                        WarehouseEventInputType.LOCK_ITEM,
-                        order.getId(),
-                        order.getItemId()
-                )
-        );
+        warehouseInputEventProducer.sendItemLockEvent(order.getId(), order.getItemId());
 
         return order;
-    }
-
-    private OrderDTO mapToDTO(Order order) {
-        return new OrderDTO(order.getId(), order.getItemId(), order.getUserId(), order.getStatus());
     }
 
     private Order findByIdOrElseThrow(UUID orderId) {
@@ -74,6 +60,7 @@ public class OrderService {
             order.setStatus(OrderStatus.CANCELED);
 
             log.info("Item from order {} is unavailable. Order is being canceled", orderId);
+
         } catch (ResourceNotFoundException ex) {
             log.error("Order {} cannot be canceled after item unavailable because it does not exist", orderId);
         }
@@ -85,26 +72,11 @@ public class OrderService {
             order.setStatus(OrderStatus.AWAITING_PAYMENT);
 
             log.info("Item from order {} locked. Sending PAYMENT_REQUEST event", event.orderId());
+            paymentInputEventProducer.sendPaymentRequestEvent(order.getId(), order.getUserId(), event.itemDTO().price());
 
-            paymentInputEventProducer.send(
-                    order.getId().toString(),
-                    new PaymentInputEvent(
-                            PaymentInputEventType.PAYMENT_REQUEST,
-                            order.getId(),
-                            order.getUserId(),
-                            event.itemDTO().price()
-                    )
-            );
         } catch (ResourceNotFoundException ex) {
             log.error("Could not find order, item UNLOCK_ITEM is being sent");
-            warehouseInputEventProducer.send(
-                    event.orderId().toString(),
-                    new WarehouseInputEvent(
-                            WarehouseEventInputType.UNLOCK_ITEM,
-                            event.orderId(),
-                            null
-                    )
-            );
+            warehouseInputEventProducer.sendUnlockItemEvent(event.orderId());
         }
     }
 
@@ -125,15 +97,8 @@ public class OrderService {
             order.setStatus(OrderStatus.CANCELED);
 
             log.info("Payment for order {} failed. Canceling order and sending UNLOCK_ITEM event", id);
+            warehouseInputEventProducer.sendUnlockItemEvent(id);
 
-            warehouseInputEventProducer.send(
-                    order.getId().toString(),
-                    new WarehouseInputEvent(
-                            WarehouseEventInputType.UNLOCK_ITEM,
-                            order.getId(),
-                            null
-                    )
-            );
         } catch (ResourceNotFoundException ex) {
             log.error("Order {} cannot be canceled after payment failure because it does not exist", id);
         }
@@ -145,25 +110,11 @@ public class OrderService {
             order.setStatus(OrderStatus.COMPLETED);
 
             log.info("Payment success for order {}. Sending DELETE_LOCK_AND_DECREMENT_COUNT event", id);
-            warehouseInputEventProducer.send(
-                    order.getId().toString(),
-                    new WarehouseInputEvent(
-                            WarehouseEventInputType.DELETE_LOCK_AND_DECREMENT_COUNT,
-                            order.getId(),
-                            null
-                    )
-            );
+            warehouseInputEventProducer.sendDeleteLockAndDecrementCountEvent(id);
+
         } catch (ResourceNotFoundException ex) {
             log.error("Could not find order, item PAYMENT_REVOKE is being sent");
-            paymentInputEventProducer.send(
-                    id.toString(),
-                    new PaymentInputEvent(
-                            PaymentInputEventType.PAYMENT_REVOKE,
-                            id,
-                            null,
-                            null
-                    )
-            );
+            paymentInputEventProducer.sendPaymentRevokeEvent(id);
         }
     }
 
