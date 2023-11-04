@@ -1,9 +1,7 @@
 package com.github.karixdev.orderservice.producer;
 
-import com.github.karixdev.common.dto.warehouse.ItemDTO;
 import com.github.karixdev.common.event.payment.PaymentInputEvent;
 import com.github.karixdev.common.event.payment.PaymentInputEventType;
-import com.github.karixdev.orderservice.entity.Order;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -25,7 +23,7 @@ public class PaymentInputEventProducer {
         this.topic = topic;
     }
 
-    public void sendPaymentRequestEvent(UUID orderId, UUID userId, BigDecimal amount) {
+    public void producePaymentRequestEvent(UUID orderId, UUID userId, BigDecimal amount) {
         PaymentInputEvent event = PaymentInputEvent.builder()
                 .type(PaymentInputEventType.PAYMENT_REQUEST)
                 .orderId(orderId)
@@ -36,7 +34,7 @@ public class PaymentInputEventProducer {
         kafkaTemplate.send(topic, orderId.toString(), event);
     }
 
-    public void sendPaymentRevokeEvent(UUID orderId) {
+    public void producePaymentRevokeEvent(UUID orderId) {
         PaymentInputEvent event = PaymentInputEvent.builder()
                 .type(PaymentInputEventType.PAYMENT_REVOKE)
                 .orderId(orderId)

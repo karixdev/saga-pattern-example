@@ -2,11 +2,7 @@ package com.github.karixdev.orderservice.service;
 
 import com.github.karixdev.common.dto.order.OrderDTO;
 import com.github.karixdev.common.dto.order.OrderStatus;
-import com.github.karixdev.common.event.payment.PaymentInputEvent;
-import com.github.karixdev.common.event.payment.PaymentInputEventType;
 import com.github.karixdev.common.event.payment.PaymentOutputEvent;
-import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
-import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
 import com.github.karixdev.common.event.warehouse.WarehouseOutputEvent;
 import com.github.karixdev.common.exception.ResourceNotFoundException;
 import com.github.karixdev.orderservice.entity.Order;
@@ -42,7 +38,7 @@ public class OrderService {
         repository.save(order);
 
         log.info("Created order {}. Sending LOCK_ITEM event", order.getId());
-        warehouseInputEventProducer.sendItemLockEvent(order.getId(), order.getItemId());
+        warehouseInputEventProducer.produceItemLockEvent(order.getId(), order.getItemId());
 
         return order;
     }
@@ -72,11 +68,11 @@ public class OrderService {
             order.setStatus(OrderStatus.AWAITING_PAYMENT);
 
             log.info("Item from order {} locked. Sending PAYMENT_REQUEST event", event.orderId());
-            paymentInputEventProducer.sendPaymentRequestEvent(order.getId(), order.getUserId(), event.itemDTO().price());
+            paymentInputEventProducer.producePaymentRequestEvent(order.getId(), order.getUserId(), event.itemDTO().price());
 
         } catch (ResourceNotFoundException ex) {
             log.error("Could not find order, item UNLOCK_ITEM is being sent");
-            warehouseInputEventProducer.sendUnlockItemEvent(event.orderId());
+            warehouseInputEventProducer.produceUnlockItemEvent(event.orderId());
         }
     }
 
@@ -97,7 +93,7 @@ public class OrderService {
             order.setStatus(OrderStatus.CANCELED);
 
             log.info("Payment for order {} failed. Canceling order and sending UNLOCK_ITEM event", id);
-            warehouseInputEventProducer.sendUnlockItemEvent(id);
+            warehouseInputEventProducer.produceUnlockItemEvent(id);
 
         } catch (ResourceNotFoundException ex) {
             log.error("Order {} cannot be canceled after payment failure because it does not exist", id);
@@ -110,11 +106,11 @@ public class OrderService {
             order.setStatus(OrderStatus.COMPLETED);
 
             log.info("Payment success for order {}. Sending DELETE_LOCK_AND_DECREMENT_COUNT event", id);
-            warehouseInputEventProducer.sendDeleteLockAndDecrementCountEvent(id);
+            warehouseInputEventProducer.produceDeleteLockAndDecrementCountEvent(id);
 
         } catch (ResourceNotFoundException ex) {
             log.error("Could not find order, item PAYMENT_REVOKE is being sent");
-            paymentInputEventProducer.sendPaymentRevokeEvent(id);
+            paymentInputEventProducer.producePaymentRevokeEvent(id);
         }
     }
 

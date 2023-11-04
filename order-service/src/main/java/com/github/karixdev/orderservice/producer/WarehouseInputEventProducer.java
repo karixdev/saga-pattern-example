@@ -2,7 +2,6 @@ package com.github.karixdev.orderservice.producer;
 
 import com.github.karixdev.common.event.warehouse.WarehouseEventInputType;
 import com.github.karixdev.common.event.warehouse.WarehouseInputEvent;
-import com.github.karixdev.orderservice.entity.Order;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -23,7 +22,7 @@ public class WarehouseInputEventProducer {
         this.topic = topic;
     }
 
-    public void sendItemLockEvent(UUID orderId, UUID itemId) {
+    public void produceItemLockEvent(UUID orderId, UUID itemId) {
         WarehouseInputEvent event = WarehouseInputEvent.builder().
                 type(WarehouseEventInputType.LOCK_ITEM)
                 .orderId(orderId)
@@ -33,7 +32,7 @@ public class WarehouseInputEventProducer {
         kafkaTemplate.send(topic, orderId.toString(), event);
     }
 
-    public void sendUnlockItemEvent(UUID orderId) {
+    public void produceUnlockItemEvent(UUID orderId) {
         WarehouseInputEvent event = WarehouseInputEvent.builder()
                 .type(WarehouseEventInputType.UNLOCK_ITEM)
                 .orderId(orderId)
@@ -42,7 +41,7 @@ public class WarehouseInputEventProducer {
         kafkaTemplate.send(topic, orderId.toString(), event);
     }
 
-    public void sendDeleteLockAndDecrementCountEvent(UUID orderId) {
+    public void produceDeleteLockAndDecrementCountEvent(UUID orderId) {
         WarehouseInputEvent event = WarehouseInputEvent.builder()
                 .type(WarehouseEventInputType.DELETE_LOCK_AND_DECREMENT_COUNT)
                 .orderId(orderId)
