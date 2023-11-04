@@ -47,6 +47,7 @@ public class PaymentService {
 
             BigDecimal newBalance = bankAccount.getBalance().subtract(event.amount());
             if (newBalance.compareTo(new BigDecimal(0)) < 0) {
+                log.warn("Payment for order {} failed. Sending PAYMENT_FAILED event.", event.orderId());
                 producer.producePaymentFailedEvent(event.orderId());
                 return;
             }
@@ -63,7 +64,10 @@ public class PaymentService {
 
             producer.producePaymentSuccessEvent(event.orderId());
 
+            log.info("Payment done for order {}. Sending PAYMENT_SUCCESS event.", event.orderId());
+
         } catch (ResourceNotFoundException ex) {
+            log.error("Could not found bank account of user {}. Sending PAYMENT_FAILURE event.", event.userId());
             producer.producePaymentFailedEvent(event.orderId());
         }
     }
@@ -76,7 +80,9 @@ public class PaymentService {
             BigDecimal newBalance = bankAccount.getBalance().add(payment.getAmount());
             bankAccount.setBalance(newBalance);
 
-        } catch (ResourceNotFoundException ex) {}
+        } catch (ResourceNotFoundException ex) {
+            log.error("Could not revoke payment for order {} - payment not found.", event.orderId());
+        }
     }
 
     @Transactional
