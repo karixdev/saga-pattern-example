@@ -22,7 +22,7 @@ public class OrderController {
     private final OrderService service;
 
     @PostMapping
-    ResponseEntity<OrderDTO> create(@RequestBody OrderDTO orderDTO) {
+    ResponseEntity<Order> create(@RequestBody OrderDTO orderDTO) {
         return new ResponseEntity<>(service.create(orderDTO), HttpStatus.CREATED);
     }
 

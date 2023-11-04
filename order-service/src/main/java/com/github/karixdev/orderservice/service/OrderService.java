@@ -14,6 +14,7 @@ import com.github.karixdev.orderservice.producer.PaymentInputEventProducer;
 import com.github.karixdev.orderservice.producer.WarehouseInputEventProducer;
 import com.github.karixdev.orderservice.repository.OrderRepository;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Service;
@@ -23,24 +24,15 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository repository;
     private final WarehouseInputEventProducer warehouseInputEventProducer;
     private final PaymentInputEventProducer paymentInputEventProducer;
 
-    public OrderService(
-            OrderRepository repository,
-            WarehouseInputEventProducer warehouseInputEventProducer,
-            PaymentInputEventProducer paymentInputEventProducer
-    ) {
-        this.repository = repository;
-        this.warehouseInputEventProducer = warehouseInputEventProducer;
-        this.paymentInputEventProducer = paymentInputEventProducer;
-    }
-
     @Transactional
-    public OrderDTO create(OrderDTO orderDTO) {
+    public Order create(OrderDTO orderDTO) {
         Order order = Order.builder()
                 .itemId(orderDTO.itemId())
                 .userId(orderDTO.userId())
@@ -62,7 +54,7 @@ public class OrderService {
                 )
         );
 
-        return createdOrderDTO;
+        return order;
     }
 
     private OrderDTO mapToDTO(Order order) {
