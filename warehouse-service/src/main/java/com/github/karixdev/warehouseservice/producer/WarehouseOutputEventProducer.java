@@ -23,22 +23,23 @@ public class WarehouseOutputEventProducer {
         this.topic = topic;
     }
 
-    public void produceItemUnavailableEvent(String key, UUID orderId) {
-        WarehouseOutputEvent event = new WarehouseOutputEvent(
-                WarehouseOutputEventType.ITEM_UNAVAILABLE,
-                orderId,
-                null
-        );
-        kafkaTemplate.send(topic, key, event);
+    public void produceItemUnavailableEvent(UUID orderId) {
+        WarehouseOutputEvent event = WarehouseOutputEvent.builder()
+                .type(WarehouseOutputEventType.ITEM_UNAVAILABLE)
+                .orderId(orderId)
+                .build();
+
+        kafkaTemplate.send(topic, orderId.toString(), event);
     }
 
-    public void produceItemLockedEvent(String key, UUID orderId, ItemDTO itemDTO) {
-        WarehouseOutputEvent event = new WarehouseOutputEvent(
-                WarehouseOutputEventType.ITEM_LOCKED,
-                orderId,
-                itemDTO
-        );
-        kafkaTemplate.send(topic, key, event);
+    public void produceItemLockedEvent(UUID orderId, ItemDTO itemDTO) {
+        WarehouseOutputEvent event = WarehouseOutputEvent.builder()
+                .type(WarehouseOutputEventType.ITEM_LOCKED)
+                .orderId(orderId)
+                .itemDTO(itemDTO)
+                .build();
+
+        kafkaTemplate.send(topic, orderId.toString(), event);
     }
 
 }
